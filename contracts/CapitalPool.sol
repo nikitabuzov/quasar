@@ -27,19 +27,20 @@ contract CapitalPool is Ownable {
 
     constructor() public {
         coverCount = 0;
-        capitalPool = 0;
+        capitalPool = 1000;
         coveragePrice = 2;
         mcr = 0;
-        availableCapital =0;
+        availableCapital = 1000;
     }
  
     // Functions
-    function setCoveragePrice(uint256 _coveragePrice) public onlyOwner {
+    function setCoveragePrice(uint256 _coveragePrice) public onlyOwner returns(uint256) {
         coveragePrice = _coveragePrice; //set in percents, e.g. coverPrice = 2 means that the yearly price is 2% of the principal
+        return coveragePrice;
     }
 
     function buyCoverage(uint256 _coverPeriod, uint256 _coverAmount)
-        public payable
+        external payable
         paidEnough(_coverAmount*coveragePrice/100*_coverPeriod/31536000)
         validPeriod(_coverPeriod)
         coverAvailable(_coverAmount)
