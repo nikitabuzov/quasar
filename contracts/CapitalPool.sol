@@ -11,6 +11,8 @@ contract CapitalPool is Ownable {
     uint256 public mcr;
     uint256 public availableCapital;
     mapping (address => Coverage) public coverages;
+    mapping (address => bool) public providers;
+    mapping (address => uint) public balanceOf;
 
     struct Coverage {
         uint256 id;
@@ -24,6 +26,7 @@ contract CapitalPool is Ownable {
 
     // Events
     event logCoverPurchase(address indexed buyer);
+    event logCapitalDeposited(address indexed provider);
 
     constructor() public {
         coverCount = 0;
@@ -57,4 +60,18 @@ contract CapitalPool is Ownable {
         return true;
     }
 
+    function depositCapital()
+        external payable
+        returns(bool)
+    {
+        emit logCapitalDeposited(msg.sender);
+        capitalPool = capitalPool + msg.value;
+        availableCapital = capitalPool - mcr;
+        providers[msg.sender] = true;
+        balanceOf[msg.sender] = msg.value;
+
+        return true;
+    }
+
+    
 }
