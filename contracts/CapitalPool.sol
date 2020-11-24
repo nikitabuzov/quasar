@@ -2,9 +2,13 @@ pragma solidity >=0.4.22 <0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import "./QuasarToken.sol";
 
 contract CapitalPool is Ownable {
     using SafeMath for uint256;
+    using SafeERC20 for IERC20;
 
     // State variables
     uint256 public coveragePrice;
@@ -12,25 +16,52 @@ contract CapitalPool is Ownable {
     uint256 public capitalPool;
     uint256 public mcr;
     uint256 public availableCapital;
-    mapping (address => Coverage) public coverages;
-    mapping (address => bool) public providers;
-    mapping (address => uint) public balanceOf;
+    uint256 allocPoint; // how many allocation points assigned to this pool (100% since it's the only one?)
+    uint256 lastRewardBlock;  // Last block number that QSRs distribution occurs.
+    uint256 accQuasarPerShare; // Accumulated QSRs per share, times 1e12. See below.
+    mapping (address => Coverage) public buyers;
+    mapping (address => ProviderInfo) public providers;
+    QuasarToken public quasar;  // QSR token
+    uint256 public quasarPerBlock;  // QSR tokens created per block
+    uint256 public startBlock;  // the block bumber when QSR mining starts
 
+    struct ProviderInfo {
+        uint256 amount;     // How much ETH coverage provider has provided
+        uint256 rewardDebt; // Reward debt: amount of QSR pending to be distributed
+        // pending reward = (user.amount * accQsrPerShare) - user.rewardDebt
+        //
+        // When coverage provider deposits or withdraws from the pool the following happens:
+        //  1) `accQsrPerShare` gets updated
+        //  2) pending reward gets distributed
+        //  3) `amount` gets updated
+        //  4) `rewardDebt` gets updated
+    }
     struct Coverage {
         uint256 id;
         uint256 expirationTime;
         uint256 coverAmount;
     }
+
+
     // Modifiers
     modifier paidEnough(uint256 _price) { require(msg.value >= _price); _;}
     modifier validPeriod(uint256 _period) {require(_period >= 1209600 && _period <= 31536000); _;}
     modifier coverAvailable(uint256 _coverAmount) {require(_coverAmount <= availableCapital); _;}
+    modifier validCover(address buyer) {require(buyers[buyer].expirationTime >= now); _;}
 
     // Events
     event logCoverPurchase(address indexed buyer);
-    event logCapitalDeposited(address indexed provider);
+    event logCapitalDeposited(address indexed provider, uint256 amount);
+    event logCapitalWithdraw(address indexed provider, uint256 amount);
 
-    constructor() public {
+    constructor(
+        QuasarToken _quasar,
+        uint256 _quasarPerBlock,
+        uint256 _startBlock
+    ) public {
+        quasar = _quasar;
+        quasarPerBlock = _quasarPerBlock;
+        startBlock = _startBlock;
         coverCount = 0;
         capitalPool = 1000;
         coveragePrice = 2;
@@ -52,9 +83,9 @@ contract CapitalPool is Ownable {
         returns(bool)
     {
         emit logCoverPurchase(msg.sender);
-        coverages[msg.sender].id = coverCount;
-        coverages[msg.sender].expirationTime = now.add(_coverPeriod);
-        coverages[msg.sender].coverAmount = _coverAmount;
+        buyers[msg.sender].id = coverCount;
+        buyers[msg.sender].expirationTime = now.add(_coverPeriod);
+        buyers[msg.sender].coverAmount = _coverAmount;
         coverCount++;
         mcr = mcr.add(_coverAmount);
         availableCapital = capitalPool.sub(mcr);
@@ -69,11 +100,46 @@ contract CapitalPool is Ownable {
         emit logCapitalDeposited(msg.sender);
         capitalPool = capitalPool.add(msg.value);
         availableCapital = capitalPool.sub(mcr);
-        providers[msg.sender] = true;
-        balanceOf[msg.sender] = msg.value;
+        if (providers[msg.sender].amount > 0) {
+            providers[msg.sender].amount = providers[msg.sender].amount.add(msg.value);
+        } else{
+            providers[msg.sender].amount = msg.value;
+        }
 
         return true;
     }
+    
+    // View function to see pending QSRs on frontend.
+    function pendingQuasar(address _provider)
+        external view
+        returns (uint256)
+    {
+        ProviderInfo storage provider = ProviderInfo[_provider];
+        //
+        // FIGURE THIS OUT !!!
+        uint256 lpSupply = pool.lpToken.balanceOf(address(this));
+        //
+        //
+        if (block.number > pool.lastRewardBlock && lpSupply != 0) {
+            accQuasarPerShare = accQuasarPerShare.add(quasarPerBlock.mul(1e12).div(lpSupply));
+        }
+        return provider.amount.mul(accQuasarPerShare).div(1e12).sub(provider.rewardDebt);
+    }
 
+    function openClaim()
+        external
+        validCover(msg.sender)
+        returns (bool)
+    {
+
+    }
+
+    function resolveClaim()
+        public
+        onlyOwner
+        returns (bool)
+    {
+        
+    }
     
 }
