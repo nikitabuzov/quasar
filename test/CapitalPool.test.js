@@ -25,6 +25,8 @@ contract('CapitalPool', function(accounts) {
     })
 
     it('should allow coverage buyers to purchase the coverage', async () => {
+        await instance.depositCapital({from:user6,value:100}) // first must deposit liquidity
+
         // check valid 1 year tx + event emitted
         const tx = await instance.buyCoverage(31536000, 100, {from: user1, value:2})
         if (tx.logs[0].event == "logCoverPurchase") {
@@ -42,18 +44,27 @@ contract('CapitalPool', function(accounts) {
 
         // check invalid cover amount (over the available amount)
         await catchRevert(instance.buyCoverage(31536000, 4500, {from: user5, value:90}))
+
+        // check that mcr is updated
+        assert.equal(await instance.mcr.call(),100)
+
+        // check ETH in the contract
+        assert.equal(await web3.eth.getBalance(instance.address),102)
     })
 
     it('should allow coverage providers to deposit ETH', async () => {
-        var poolBefore = await instance.capitalPool.call()
+        // var poolBefore = await instance.capitalPool.call()
+        var poolBefore = await web3.eth.getBalance(instance.address)
         const tx = await instance.depositCapital({from: user2, value: 20})
         if (tx.logs[0].event == "logCapitalDeposited") {
             eventEmitted = true
         }
-        var poolAfter = await instance.capitalPool.call()
+        // var poolAfter = await instance.capitalPool.call()
+        var poolAfter = await web3.eth.getBalance(instance.address)
 
         assert.equal(poolAfter-poolBefore,20, 'pool balance updated correctly')
         assert.ok(tx.receipt.status, 'deposit is successful')
         assert.equal(eventEmitted, true, 'deposit emits a CapitalDeposited event')
+        
     })
 })

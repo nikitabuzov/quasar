@@ -13,10 +13,10 @@ contract CapitalPool is Ownable {
     // State variables
     uint256 public coveragePrice;
     uint256 public coverCount;
-    uint256 public capitalPool;
+    // uint256 public capitalPool;
     uint256 public mcr;
     uint256 public availableCapital;
-    uint256 allocPoint; // how many allocation points assigned to this pool (100% since it's the only one?)
+    // uint256 allocPoint; // how many allocation points assigned to this pool (100% since it's the only one?)
     uint256 lastRewardBlock;  // Last block number that QSRs distribution occurs.
     uint256 accQuasarPerShare; // Accumulated QSRs per share, times 1e12. See below.
     mapping (address => Coverage) public buyers;
@@ -28,10 +28,10 @@ contract CapitalPool is Ownable {
     struct ProviderInfo {
         uint256 amount;     // How much ETH coverage provider has provided
         uint256 rewardDebt; // Reward debt: amount of QSR pending to be distributed
-        // pending reward = (user.amount * accQsrPerShare) - user.rewardDebt
+        // pending reward = (user.amount * accQuasarPerShare) - user.rewardDebt
         //
         // When coverage provider deposits or withdraws from the pool the following happens:
-        //  1) `accQsrPerShare` gets updated
+        //  1) `accQuasarPerShare` gets updated
         //  2) pending reward gets distributed
         //  3) `amount` gets updated
         //  4) `rewardDebt` gets updated
@@ -55,15 +55,15 @@ contract CapitalPool is Ownable {
     event logCapitalWithdraw(address indexed provider, uint256 amount);
 
     constructor(
-        QuasarToken _quasar,
-        uint256 _quasarPerBlock,
-        uint256 _startBlock
+        // QuasarToken _quasar,
+        // uint256 _quasarPerBlock,
+        // uint256 _startBlock
     ) public {
-        quasar = _quasar;
-        quasarPerBlock = _quasarPerBlock;
-        startBlock = _startBlock;
+        quasar = new QuasarToken();
+        quasarPerBlock = 100;
+        startBlock = block.number;
         coverCount = 0;
-        capitalPool = 1000;
+        // capitalPool = 1000;
         coveragePrice = 2;
         mcr = 0;
         availableCapital = 1000;
@@ -88,8 +88,7 @@ contract CapitalPool is Ownable {
         buyers[msg.sender].coverAmount = _coverAmount;
         coverCount++;
         mcr = mcr.add(_coverAmount);
-        availableCapital = capitalPool.sub(mcr);
-
+        availableCapital = address(this).balance.sub(mcr);
         return true;
     }
 
@@ -97,15 +96,21 @@ contract CapitalPool is Ownable {
         external payable
         returns(bool)
     {
-        emit logCapitalDeposited(msg.sender);
-        capitalPool = capitalPool.add(msg.value);
-        availableCapital = capitalPool.sub(mcr);
+        updatePool();
+        emit logCapitalDeposited(msg.sender, msg.value);
+        // capitalPool = capitalPool.add(msg.value);
+        availableCapital = address(this).balance.sub(mcr);
         if (providers[msg.sender].amount > 0) {
+            uint256 pending = providers[msg.sender].amount.mul(accQuasarPerShare).div(1e12).sub(providers[msg.sender].rewardDebt);
+            if (pending > 0) {
+                quasar.transfer(msg.sender, pending);
+            }
             providers[msg.sender].amount = providers[msg.sender].amount.add(msg.value);
         } else{
             providers[msg.sender].amount = msg.value;
+            providers[msg.sender].rewardDebt = 0;
         }
-
+        // providers[msg.sender].rewardDebt = providers[msg.sender].amount;
         return true;
     }
     
@@ -114,16 +119,30 @@ contract CapitalPool is Ownable {
         external view
         returns (uint256)
     {
-        ProviderInfo storage provider = ProviderInfo[_provider];
-        //
-        // FIGURE THIS OUT !!!
-        uint256 lpSupply = pool.lpToken.balanceOf(address(this));
-        //
-        //
-        if (block.number > pool.lastRewardBlock && lpSupply != 0) {
-            accQuasarPerShare = accQuasarPerShare.add(quasarPerBlock.mul(1e12).div(lpSupply));
+        ProviderInfo storage provider = providers[_provider];
+        uint256 poolBalance = address(this).balance;
+        uint256 accumulatedQuasarPerShare = accQuasarPerShare;
+        if (poolBalance != 0) {
+            accumulatedQuasarPerShare = accumulatedQuasarPerShare.add(quasarPerBlock.mul(1e12).div(poolBalance));
         }
-        return provider.amount.mul(accQuasarPerShare).div(1e12).sub(provider.rewardDebt);
+        return provider.amount.mul(accumulatedQuasarPerShare).div(1e12).sub(provider.rewardDebt);
+    }
+
+    function updatePool()
+        public
+    {
+        if (block.number <= lastRewardBlock) {
+            return;
+        }
+        uint256 poolBalance = address(this).balance;
+        if (poolBalance == 0) {
+            lastRewardBlock = block.number;
+            return;
+        }
+        // uint256 quasarReward = quasarPerBlock.mul(allocPoint);
+        quasar.mint(address(this), quasarPerBlock);
+        accQuasarPerShare = accQuasarPerShare.add(quasarPerBlock.mul(1e12).div(poolBalance));
+        lastRewardBlock = block.number;
     }
 
     function openClaim()
