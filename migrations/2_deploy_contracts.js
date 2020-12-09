@@ -1,8 +1,8 @@
-var CapitalPool = artifacts.require("./CapitalPool.sol");
+var Pool = artifacts.require("./Pool.sol");
 var QuasarToken = artifacts.require("./QuasarToken.sol");
 
 module.exports = function(deployer) {
   //deployer.deploy(SimpleBank);
-  deployer.deploy(CapitalPool);
+  deployer.deploy(Pool);
   deployer.deploy(QuasarToken);
 };
