@@ -32,7 +32,9 @@ contract Pool is Ownable, ReentrancyGuard {
     uint256 public mcr; // Minimum Capital Requirement (pool must be able to cover all possible claims)
     uint256 public availableCapital; // how much of coverage can the pool deliver ( = pool - mcr)
 
-    mapping (address => Coverage) public buyers;
+    mapping (address => Coverage) public coverageOf;
+    mapping (uint256 => bool)  public openClaims;
+    mapping (uint256 => address) public buyerOf;
     struct Coverage {
         uint256 id;
         uint256 expirationTime;
@@ -96,9 +98,10 @@ contract Pool is Ownable, ReentrancyGuard {
         coverAvailable(_coverAmount)
         returns(bool)
     {
-        buyers[msg.sender].id = coverCount;
-        buyers[msg.sender].expirationTime = now.add(_coverPeriod);
-        buyers[msg.sender].coverAmount = _coverAmount;
+        coverageOf[msg.sender].id = coverCount;
+        coverageOf[msg.sender].expirationTime = now.add(_coverPeriod);
+        coverageOf[msg.sender].coverAmount = _coverAmount;
+        buyerOf[coverCount] = msg.sender;
         coverCount++;
         mcr = mcr.add(_coverAmount);
         availableCapital = _totalSupply.sub(mcr);
@@ -155,20 +158,31 @@ contract Pool is Ownable, ReentrancyGuard {
         getReward();
     }
 
-    function openClaim()
+    function openClaim(string calldata statement)
         external
         validCover(msg.sender)
-        returns (bool)
+        claimNotOpen(msg.sender)
     {
-
+        openClaims[coverageOf[msg.sender].id] = true;
+        emit ClaimOpened(msg.sender, coverageOf[msg.sender].id, statement);
     }
 
-    function resolveClaim()
+    function resolveClaim(uint256 coverageID, bool decision)
         public
         onlyOwner
-        returns (bool)
+        nonReentrant
+        claimOpen(coverageID)
     {
-        
+        openClaims[coverageID] = false;
+        if (decision == true) {
+            address payoutReceiver = buyerOf[coverageID];
+            uint256 payoutAmount = coverageOf[payoutReceiver].coverAmount;
+            (bool success, ) = payoutReceiver.call{value:payoutAmount}("");
+            if (success) {
+                emit ClaimPayedOut(coverageID);
+            }
+        }
+        emit ClaimResolved(coverageID, decision);
     }
 
     /* ========== RESTRICTED FUNCTIONS ========== */
@@ -219,7 +233,9 @@ contract Pool is Ownable, ReentrancyGuard {
     modifier paidEnough(uint256 _price) { require(msg.value >= _price); _;}
     modifier validPeriod(uint256 _period) {require(_period >= 1209600 && _period <= 31536000); _;}
     modifier coverAvailable(uint256 _coverAmount) {require(_coverAmount <= availableCapital); _;}
-    modifier validCover(address _buyer) {require(buyers[_buyer].expirationTime >= now); _;}
+    modifier validCover(address _buyer) {require(coverageOf[_buyer].expirationTime >= now); _;}
+    modifier claimOpen(uint256 _coverageID) {require(openClaims[_coverageID] == true); _;}
+    modifier claimNotOpen(address _buyer) {require(openClaims[coverageOf[_buyer].id] != true); _;}
     modifier isProvider(address _provider) {require(_balances[_provider] > 0); _;}
 
     /* ========== EVENTS ========== */
@@ -230,4 +246,7 @@ contract Pool is Ownable, ReentrancyGuard {
     event RewardPaid(address indexed user, uint256 reward);
     event CoverPurchased(address indexed buyer, uint256 period, uint256 amount);
     event CoverPriceUpdated(uint256 newPrice);
+    event ClaimOpened(address indexed buyer, uint256 coverageID, string statement);
+    event ClaimPayedOut(uint256 coverageID);
+    event ClaimResolved(uint256 coverageID, bool decision);
 }

@@ -110,4 +110,39 @@ contract('Pool', function(accounts) {
         });
     });
 
+    describe('coverage claims', function () {
+        it('should let buyers to open claims', async () => {
+            await instance.deposit({from:user6,value:100}) // first must deposit liquidity
+            await instance.buyCoverage(31536000, 50, {from: user1, value:1})
+            await timeTravel.advanceTimeAndBlock(2678400)
+            const tx = await instance.openClaim('Yearn got hacked, I lost my money, please pay me back!', {from: user1})
+            if (tx.logs[0].event == "ClaimOpened") {
+                eventEmitted = true
+            }
+            assert.ok(tx.receipt.status, 'claim is successfully opened')
+            assert.strictEqual(eventEmitted, true, 'openClaim emits a ClaimOpened event')
+        });
+
+        it('should let the owner to resolve claims and make payouts', async () => {
+            await instance.deposit({from:user6,value:100}) // first must deposit liquidity
+            await instance.buyCoverage(31536000, 50, {from: user1, value:1})
+            await timeTravel.advanceTimeAndBlock(2678400)
+            await instance.openClaim('Yearn got hacked, I lost my money, please pay me back!', {from: user1})
+            var coverageID = 0
+            var decision = true
+            var userBalanceBefore = await web3.eth.getBalance(user1)
+            const tx = await instance.resolveClaim(coverageID, decision, {from: owner})
+            var userBalanceAfter = await web3.eth.getBalance(user1)
+            if (tx.logs[0].event == "ClaimPayedOut") {
+                event1Emitted = true
+            }
+            if (tx.logs[1].event == "ClaimResolved") {
+                event2Emitted = true
+            }
+            assert.ok(tx.receipt.status, 'claim is successfully resolved')
+            assert.strictEqual(Number(userBalanceAfter), Number(userBalanceBefore) + 50, 'the user received the correct payout')
+            assert.strictEqual(event1Emitted, true, 'resolveClaim emits a ClaimPayedOut event')
+            assert.strictEqual(event2Emitted, true, 'resolveClaim emits a ClaimResolved event')
+        });
+    });
 })
