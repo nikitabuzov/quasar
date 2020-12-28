@@ -16,6 +16,7 @@ contract Pool is Ownable, ReentrancyGuard {
     /* ========== STATE VARIABLES ========== */
 
     QuasarToken public rewardsToken;
+    bool private stopped = false; // circuit breaker
     // rewards distribution
     uint256 public periodFinish = 0;
     uint256 public rewardRate = 0;
@@ -93,6 +94,7 @@ contract Pool is Ownable, ReentrancyGuard {
 
     function buyCoverage(uint256 _coverPeriod, uint256 _coverAmount)
         external payable
+        stopInEmergency
         paidEnough(_coverAmount.mul(coveragePrice).mul(_coverPeriod).div(100).div(31536000))
         validPeriod(_coverPeriod)
         coverAvailable(_coverAmount)
@@ -112,6 +114,7 @@ contract Pool is Ownable, ReentrancyGuard {
     function deposit()
         external payable
         nonReentrant
+        stopInEmergency
         updateReward(msg.sender)
     {
         require(msg.value > 0, "Cannot deposit 0");
@@ -124,6 +127,7 @@ contract Pool is Ownable, ReentrancyGuard {
     function withdraw(uint256 amount)
         public
         nonReentrant
+        stopInEmergency
         isProvider(msg.sender)
         updateReward(msg.sender)
     {
@@ -141,6 +145,7 @@ contract Pool is Ownable, ReentrancyGuard {
     function getReward()
         public
         nonReentrant
+        stopInEmergency
         updateReward(msg.sender)
     {
         uint256 reward = rewards[msg.sender];
@@ -195,6 +200,13 @@ contract Pool is Ownable, ReentrancyGuard {
         emit CoverPriceUpdated(coveragePrice);
     }
 
+    function toggleContractActive()
+        public
+        onlyOwner
+    {
+        stopped = !stopped;
+    }
+
     function notifyRewardAmount(uint256 reward)
         internal
         updateReward(address(0))
@@ -237,6 +249,8 @@ contract Pool is Ownable, ReentrancyGuard {
     modifier claimOpen(uint256 _coverageID) {require(openClaims[_coverageID] == true); _;}
     modifier claimNotOpen(address _buyer) {require(openClaims[coverageOf[_buyer].id] != true); _;}
     modifier isProvider(address _provider) {require(_balances[_provider] > 0); _;}
+    modifier stopInEmergency { if (!stopped) _; }
+
 
     /* ========== EVENTS ========== */
 
