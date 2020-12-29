@@ -1,15 +1,13 @@
 # Quasar
 **Risk sharing platform to cover for potential bugs in smart contracts.**
-***
 
 ## What is Quasar?
-***
 Quasar is a mutual-like risk sharing platform with an objective to provide affordable coverage against smart contract bugs and failures. Users can purchase coverage for the risk they're exposed through using DeFi platforms like Maker, Aave, Compound, etc. On the other hand, coverage (i.e. liquidity) providers can deposit capital to earn fees and rewards in Quasar (QSR) native token. If one the covered smart contracts have been broken, coverage holders can open a claim and the contract owner will resolve it. In case the claim is valid, a payout in the covered amount will be made by the contract from the capital pool.
 
 ## How to use Quasar? (local setup)
-***
 This app can be used and tested either by running a local Ganache ethereum blockchain or by interacting with the contract deployed to Rinkeby Testnet.
 Rinkeby addresses for the Pool and QuasarToken contracts are located in deployed_addresses.txt document.
+
 *Prerequisites*: please install Metamask browser extension, Truffle, Ganache, and Node.js
 ### Local Ganache Network
 Deploy contracts:
