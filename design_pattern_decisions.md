@@ -11,15 +11,20 @@ In order to streamline the development with audited and battle-tested code the f
 
 ### Truffle Tests
 A thorough suite of tests have been developed to test every mutative function across both Pool and QuasarToken contracts.
+
 **1. Pool.test.js**
+
 - test if the owner can change the coverage price;
 - buying coverage: test different scenarios when users provide invalid coverage period/amount or don't pay enough, as well as valid purchases;
 - capital pool deposits/withdrawals: test valid deposits and withdrawals, make sure capital providers can't withdraw more than they have deposited or more than needed to cover all possible current and future claims (i.e. satisfy minimum capital requirement)
 - coverage claims: check that holders of valid coverage plans can open claims, the owner can resolve claim, and valid claims receive payouts.
+
 **2. QuasarToken.test.js**
+
 Since the token is implemented using the OpenZeppelin preset, I have used their [test](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/test/presets/ERC20PresetMinterPauser.test.js).
 
 **3. exceptionsHelpers.js**
+
 This additional .js file has helpful try-catch function to handle different kinds of function call errors.
 
 ### Gas and Storage Optimization
