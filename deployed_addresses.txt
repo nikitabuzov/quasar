@@ -1,0 +1,4 @@
+testnet: rinkeby
+contract addresses:
+    1. Pool: 0x2A0E9B0F0F23eC7E49f82Fe83486a905A8312787
+    2. QuasarToken: 0x0e046Bf1f9Fc77ABC6d801434Ff2429c46265998
