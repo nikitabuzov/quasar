@@ -9,7 +9,7 @@ contract('QuasarToken', function (accounts) {
   const [ deployer, other ] = accounts;
 
   const name = 'MinterPauserToken';
-  const symbol = 'DRT';
+  const symbol = 'QSR';
 
   const amount = new BN('5000');
 
